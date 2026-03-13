@@ -86,32 +86,102 @@
 - 今日/本周/本月新增star数
 - 项目URL
 
+**接口定义：**
+```python
+class GitHubScraper:
+    def scrape_trending(self, period: str) -> List[Dict]:
+        """
+        爬取指定时间段的trending项目
+
+        Args:
+            period: 'daily', 'weekly', 'monthly'
+
+        Returns:
+            List[Dict]: 项目列表，每个项目包含上述提取字段
+
+        Raises:
+            ScraperException: 爬取失败（网络错误、页面加载超时等）
+        """
+        pass
+```
+
+**错误处理：**
+- **浏览器崩溃：** 捕获WebDriverException，记录日志，抛出ScraperException
+- **页面加载超时：** 设置30秒超时，超时后重试，最多3次
+- **元素定位失败：** 使用多种选择器策略（CSS、XPath），全部失败则跳过该项目
+- **反爬虫检测：** 检测到验证码或403错误时，等待60秒后重试
+- **重试策略：** 指数退避（1s, 2s, 4s），3次失败后抛出异常
+
 **反爬虫策略：**
-- 随机User-Agent轮换
+- 随机User-Agent轮换（从配置文件读取列表）
 - 请求间随机延迟（2-5秒）
-- 智能等待页面元素加载完成
-- 失败重试机制（最多3次，指数退避）
+- 智能等待页面元素加载完成（WebDriverWait，最长30秒）
+- 模拟人类行为（随机滚动页面）
 
-### 3.2 Data Parser & Analyzer（数据解析与分析）
+### 3.2 Data Parser（数据解析模块）
 
-**功能：**
-- 解析HTML结构提取结构化数据
-- 项目亮点识别和标注
-- 历史数据对比分析
+**职责：** 将Scraper返回的原始HTML/文本数据解析为结构化数据，并进行数据验证。
 
-**项目亮点提取规则：**
-- 🆕 新上榜：首次出现在trending
-- 🔥 快速增长：日增star > 500
-- ⭐ 高人气：总star > 10,000
-- 📈 排名上升：与昨日对比排名提升
-- 🏆 榜首：排名第1
+**接口定义：**
+```python
+class DataParser:
+    def parse_project(self, raw_html: str) -> Optional[Dict]:
+        """
+        解析单个项目的HTML片段
 
-**数据验证：**
-- 必填字段检查（项目名、URL、star数）
-- 数据类型验证
-- 异常值检测
+        Args:
+            raw_html: 项目HTML片段
 
-### 3.3 SQLite Database（数据存储）
+        Returns:
+            Dict: 结构化项目数据，解析失败返回None
+        """
+        pass
+
+    def validate(self, project: Dict) -> bool:
+        """
+        验证项目数据完整性
+
+        必填字段：repo_full_name, repo_url, total_stars
+        数字字段：total_stars, total_forks, period_stars 必须为非负整数
+        """
+        pass
+```
+
+**错误处理：**
+- **HTML结构变化：** 使用多个备选CSS选择器，全部失败时记录原始HTML到日志并返回None
+- **字段缺失：** 非必填字段缺失时使用默认值（描述为空字符串，语言为"Unknown"）
+- **数据类型错误：** star/fork数解析失败时记录警告并设为0
+
+### 3.3 Analyzer（数据分析模块）
+
+**职责：** 基于当前数据和历史数据，为项目标注亮点标签。
+
+**接口定义：**
+```python
+class Analyzer:
+    def analyze(self, projects: List[Dict], date: str, period: str) -> List[Dict]:
+        """
+        分析项目并标注亮点
+
+        Args:
+            projects: 解析后的项目列表
+            date: 当前日期 YYYY-MM-DD
+            period: 'daily', 'weekly', 'monthly'
+
+        Returns:
+            List[Dict]: 添加了highlights字段的项目列表
+        """
+        pass
+```
+
+**亮点提取规则：**
+- 🆕 新上榜：projects表中无该项目记录（first_seen_date = today）
+- 🔥 快速增长：period_stars > 500（daily）或 > 2000（weekly/monthly）
+- ⭐ 高人气：total_stars > 10,000
+- 📈 排名上升：与昨日同period_type对比，rank降低（数字变小）
+- 🏆 榜首：rank == 1
+
+### 3.4 Database（数据库模块）
 
 **表结构：**
 
@@ -122,6 +192,7 @@ CREATE TABLE projects (
     repo_full_name TEXT UNIQUE NOT NULL,  -- 如 "facebook/react"
     repo_url TEXT NOT NULL,
     first_seen_date DATE NOT NULL,
+    last_updated DATE NOT NULL,  -- 最后一次出现在trending的日期
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -159,9 +230,61 @@ CREATE INDEX idx_trending_project ON trending_records(project_id);
 CREATE INDEX idx_projects_name ON projects(repo_full_name);
 ```
 
-### 3.4 Report Generator（报告生成器）
+**接口定义：**
+```python
+class Database:
+    def save_projects(self, projects: List[Dict], date: str, period: str) -> None:
+        """
+        保存项目数据到数据库
+
+        逻辑：
+        1. 对每个项目，检查projects表是否存在（按repo_full_name）
+        2. 不存在则插入，存在则更新last_updated
+        3. 插入trending_records记录
+
+        使用事务确保原子性，失败时回滚
+        """
+        pass
+
+    def get_previous_ranking(self, date: str, period: str) -> Dict[str, int]:
+        """
+        获取前一天的排名数据
+
+        Returns:
+            Dict[repo_full_name, rank]: 项目名到排名的映射
+        """
+        pass
+```
+
+**更新逻辑：**
+- `last_updated`字段：每次项目出现在trending时更新为当前日期
+- 用于识别长期未上榜的项目（可用于未来的数据清理）
+
+### 3.5 Report Generator（报告生成器）
 
 **技术选型：** Jinja2模板引擎
+
+**模板位置：** `templates/report.html`
+
+**接口定义：**
+```python
+class ReportGenerator:
+    def generate(self, data: Dict, output_path: str) -> str:
+        """
+        生成HTML报告
+
+        Args:
+            data: 包含date, daily_projects, weekly_projects, monthly_projects
+            output_path: 输出文件路径
+
+        Returns:
+            str: 生成的HTML文件路径
+
+        Raises:
+            TemplateException: 模板渲染失败
+        """
+        pass
+```
 
 **报告内容：**
 - 日期和统计摘要（总项目数、热门语言分布）
@@ -173,45 +296,141 @@ CREATE INDEX idx_projects_name ON projects(repo_full_name);
   - Star/Fork数据
   - 新增star数
   - 亮点标签（新上榜、快速增长等）
-  - 排名变化趋势
+  - 排名变化趋势（↑↓符号）
+
+**模板结构：**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GitHub Trending - {{ date }}</title>
+    <style>/* 响应式CSS */</style>
+</head>
+<body>
+    <header>
+        <h1>GitHub Trending 日报</h1>
+        <p>{{ date }}</p>
+    </header>
+    <div class="tabs">
+        <div class="tab" data-period="daily">今日</div>
+        <div class="tab" data-period="weekly">本周</div>
+        <div class="tab" data-period="monthly">本月</div>
+    </div>
+    <div class="content">
+        {% for project in daily_projects %}
+        <div class="project-card">
+            <!-- 项目信息 -->
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html>
+```
 
 **设计特性：**
 - 响应式设计，支持移动端和PC端
-- 现代化UI风格
-- 数据可视化（语言分布饼图、增长趋势图）
+- 现代化UI风格（使用CSS Grid/Flexbox）
+- 无外部依赖（CSS/JS内联）
 
-### 3.5 OSS Uploader（对象存储上传）
+**错误处理：**
+- 模板文件不存在：抛出TemplateException
+- 渲染失败：使用简化版模板（纯文本列表）作为降级方案
+
+### 3.6 OSS Uploader（对象存储上传）
 
 **技术选型：** 阿里云OSS Python SDK (oss2)
 
+**接口定义：**
+```python
+class OSSUploader:
+    def upload(self, file_path: str, object_name: str) -> str:
+        """
+        上传文件到OSS
+
+        Args:
+            file_path: 本地文件路径
+            object_name: OSS对象名（如 "github-trending/2026-03-13.html"）
+
+        Returns:
+            str: 公网访问URL
+
+        Raises:
+            OSSException: 上传失败（认证错误、网络错误、权限错误）
+        """
+        pass
+```
+
 **功能：**
 - 上传HTML报告到OSS
-- 文件命名规则：`github-trending-YYYY-MM-DD.html`
-- 设置公共读权限
-- 返回公网访问URL
-- 失败重试机制（最多3次）
+- 文件命名规则：`{path_prefix}/github-trending-YYYY-MM-DD.html`
+- 设置公共读权限（ACL: public-read）
+- 返回公网访问URL格式：`https://{bucket}.{endpoint}/{object_name}`
 
-**配置项：**
-- AccessKeyId / AccessKeySecret
-- Bucket名称
-- Endpoint（区域节点）
-- 文件存储路径前缀
+**配置项（从config.yaml读取）：**
+- `access_key_id`: OSS AccessKeyId（从环境变量）
+- `access_key_secret`: OSS AccessKeySecret（从环境变量）
+- `bucket_name`: Bucket名称（从环境变量）
+- `endpoint`: 区域节点（如 "oss-cn-hangzhou.aliyuncs.com"）
+- `path_prefix`: 文件存储路径前缀（如 "github-trending/"）
 
-### 3.6 DingTalk Bot（钉钉机器人）
+**错误处理：**
+- **认证失败：** 抛出OSSException，不重试（配置错误）
+- **网络错误：** 重试3次，指数退避（1s, 2s, 4s）
+- **权限错误：** 抛出OSSException，不重试（配置错误）
+- **上传失败（3次后）：** 保存文件到本地备份目录，发送钉钉告警
+
+### 3.7 DingTalk Bot（钉钉机器人）
 
 **技术选型：** 钉钉自定义机器人Webhook API
 
+**接口定义：**
+```python
+class DingTalkBot:
+    def send_report(self, title: str, text: str, report_url: str) -> bool:
+        """
+        发送报告链接到钉钉
+
+        Args:
+            title: 消息标题
+            text: 消息摘要
+            report_url: 报告URL
+
+        Returns:
+            bool: 发送成功返回True
+
+        Raises:
+            DingTalkException: 发送失败（网络错误、webhook配置错误）
+        """
+        pass
+```
+
+**配置方式：**
+- `webhook_url`: 从环境变量 `DINGTALK_WEBHOOK_URL` 读取
+- `secret`: 从环境变量 `DINGTALK_SECRET` 读取（用于加签）
+
 **消息类型：** Link类型
 
-**消息内容：**
-- 标题：`GitHub Trending 日报 - YYYY-MM-DD`
-- 摘要：今日trending项目数量和热门语言统计
-- 报告链接：OSS公网URL
-- 缩略图（可选）
+**消息格式：**
+```json
+{
+    "msgtype": "link",
+    "link": {
+        "title": "GitHub Trending 日报 - 2026-03-13",
+        "text": "今日trending: 25个项目，热门语言: Python(8), JavaScript(6), Go(4)",
+        "messageUrl": "https://your-bucket.oss-cn-hangzhou.aliyuncs.com/...",
+        "picUrl": ""
+    }
+}
+```
 
 **安全机制：**
-- 支持加签验证（使用secret）
-- 失败重试机制（最多3次）
+- 使用HMAC-SHA256加签验证（基于secret和timestamp）
+- 签名算法：`sign = base64(hmac_sha256(timestamp + "\n" + secret))`
+
+**错误处理：**
+- **网络错误：** 重试3次，指数退避（1s, 2s, 4s）
+- **Webhook配置错误：** 抛出DingTalkException，不重试
+- **发送失败（3次后）：** 记录到数据库（dingtalk_sent=0），下次手动重试
 
 ## 4. 数据流设计
 
@@ -263,29 +482,79 @@ CREATE INDEX idx_projects_name ON projects(repo_full_name);
 
 ## 5. 错误处理策略
 
-### 5.1 爬虫层面
+### 5.1 错误分类
+
+**可重试错误（Retryable Errors）：**
+- 网络超时
+- 临时性网络错误（ConnectionError, Timeout）
+- HTTP 5xx错误
+- OSS上传临时失败
+
+**不可重试错误（Non-Retryable Errors）：**
+- 配置错误（缺少必填配置项、认证失败）
+- HTTP 4xx错误（除429外）
+- 数据验证失败
+- 模板文件不存在
+
+**重试策略：**
+- 最多重试3次
+- 指数退避：1秒、2秒、4秒
+- 记录每次重试的日志
+
+### 5.2 爬虫层面
 - **网络超时：** 重试3次，指数退避（1s, 2s, 4s）
 - **页面加载失败：** 记录日志，跳过该时间段，继续其他任务
 - **反爬虫检测：** 随机User-Agent，添加随机延迟（2-5秒）
 - **元素定位失败：** 使用多种选择器策略（CSS、XPath）作为备选
 
-### 5.2 数据处理层面
+### 5.3 数据处理层面
 - **数据解析异常：** 记录原始HTML，跳过该项目，继续处理其他项目
 - **数据库写入失败：** 事务回滚，记录错误日志
 - **数据完整性检查：** 验证必填字段（项目名、URL、star数）
 
-### 5.3 报告生成层面
+### 5.4 报告生成层面
 - **模板渲染失败：** 使用简化版模板作为降级方案
 - **OSS上传失败：** 重试3次，失败则保存本地并发送错误通知
 - **钉钉发送失败：** 重试3次，记录失败状态到数据库
 
-### 5.4 通知机制
+### 5.5 通知机制
 - **关键错误：** 发送钉钉告警消息（爬取完全失败、数据库损坏）
 - **一般错误：** 记录到日志文件，每周汇总
 
 ## 6. 配置管理
 
-### 6.1 配置文件（config.yaml）
+### 6.1 配置加载策略
+
+**配置来源优先级：**
+1. 环境变量（最高优先级）
+2. config.yaml文件
+3. 默认值（最低优先级）
+
+**配置加载接口：**
+```python
+class Config:
+    @staticmethod
+    def load() -> Dict:
+        """
+        加载配置
+
+        1. 读取config.yaml
+        2. 使用环境变量覆盖（${VAR_NAME}语法）
+        3. 验证必填配置项
+
+        Raises:
+            ConfigException: 配置文件不存在或必填项缺失
+        """
+        pass
+```
+
+**必填配置项：**
+- `OSS_ACCESS_KEY_ID`
+- `OSS_ACCESS_KEY_SECRET`
+- `OSS_BUCKET_NAME`
+- `DINGTALK_WEBHOOK_URL`
+
+### 6.2 配置文件（config.yaml）
 
 ```yaml
 # 爬虫配置
