@@ -171,3 +171,34 @@ class Database:
             raise DatabaseException(f"Failed to save projects: {e}")
         finally:
             conn.close()
+
+    def get_previous_ranking(self, date: str, period: str) -> Dict[str, int]:
+        """
+        Get previous rankings for comparison.
+
+        Args:
+            date: Record date (YYYY-MM-DD)
+            period: Period type ('daily', 'weekly', 'monthly')
+
+        Returns:
+            Dictionary mapping repo_full_name to rank
+        """
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT p.repo_full_name, tr.rank
+                FROM trending_records tr
+                JOIN projects p ON tr.project_id = p.id
+                WHERE tr.record_date = ? AND tr.period_type = ?
+                ORDER BY tr.rank
+            """, (date, period))
+
+            rankings = {row[0]: row[1] for row in cursor.fetchall()}
+            conn.close()
+
+            return rankings
+        except sqlite3.Error as e:
+            logger.error(f"Failed to get previous ranking: {e}")
+            raise DatabaseException(f"Failed to get previous ranking: {e}")

@@ -150,3 +150,42 @@ def test_save_projects_updates_existing(db):
     assert count == 2  # Should have records for both dates
 
     conn.close()
+
+
+def test_get_previous_ranking_returns_rankings(db):
+    """Test getting previous rankings."""
+    # Save projects
+    projects = [
+        {
+            "repo_full_name": "test/repo1",
+            "repo_url": "https://github.com/test/repo1",
+            "description": "",
+            "language": "Python",
+            "total_stars": 100,
+            "total_forks": 20,
+            "period_stars": 10,
+            "rank": 1,
+        },
+        {
+            "repo_full_name": "test/repo2",
+            "repo_url": "https://github.com/test/repo2",
+            "description": "",
+            "language": "Go",
+            "total_stars": 200,
+            "total_forks": 30,
+            "period_stars": 20,
+            "rank": 2,
+        },
+    ]
+    db.save_projects(projects, date="2026-03-12", period="daily")
+
+    # Get previous rankings
+    rankings = db.get_previous_ranking("2026-03-12", "daily")
+
+    assert rankings == {"test/repo1": 1, "test/repo2": 2}
+
+
+def test_get_previous_ranking_returns_empty_for_no_data(db):
+    """Test getting previous rankings when no data exists."""
+    rankings = db.get_previous_ranking("2026-03-12", "daily")
+    assert rankings == {}
