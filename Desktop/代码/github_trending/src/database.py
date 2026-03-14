@@ -102,3 +102,72 @@ class Database:
     def _get_connection(self) -> sqlite3.Connection:
         """Get database connection."""
         return sqlite3.connect(self.db_path)
+
+    def save_projects(self, projects: List[Dict[str, Any]], date: str, period: str) -> None:
+        """
+        Save projects and their trending records to database.
+
+        Args:
+            projects: List of project dictionaries
+            date: Record date (YYYY-MM-DD)
+            period: Period type ('daily', 'weekly', 'monthly')
+        """
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+
+            for project in projects:
+                # Insert or update project
+                cursor.execute("""
+                    INSERT INTO projects (repo_full_name, repo_url, first_seen_date, last_updated)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(repo_full_name) DO UPDATE SET
+                        last_updated = excluded.last_updated
+                """, (
+                    project["repo_full_name"],
+                    project["repo_url"],
+                    date,
+                    date
+                ))
+
+                # Get project_id
+                cursor.execute(
+                    "SELECT id FROM projects WHERE repo_full_name = ?",
+                    (project["repo_full_name"],)
+                )
+                project_id = cursor.fetchone()[0]
+
+                # Insert trending record
+                cursor.execute("""
+                    INSERT INTO trending_records (
+                        project_id, record_date, period_type, rank,
+                        description, language, total_stars, total_forks, period_stars
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(project_id, record_date, period_type) DO UPDATE SET
+                        rank = excluded.rank,
+                        description = excluded.description,
+                        language = excluded.language,
+                        total_stars = excluded.total_stars,
+                        total_forks = excluded.total_forks,
+                        period_stars = excluded.period_stars
+                """, (
+                    project_id,
+                    date,
+                    period,
+                    project["rank"],
+                    project.get("description", ""),
+                    project.get("language", ""),
+                    project.get("total_stars", 0),
+                    project.get("total_forks", 0),
+                    project.get("period_stars", 0)
+                ))
+
+            conn.commit()
+            logger.info(f"Saved {len(projects)} projects to database")
+        except sqlite3.Error as e:
+            conn.rollback()
+            logger.error(f"Failed to save projects: {e}")
+            raise DatabaseException(f"Failed to save projects: {e}")
+        finally:
+            conn.close()
