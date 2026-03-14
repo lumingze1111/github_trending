@@ -1,0 +1,44 @@
+# config.yaml
+# Scraper configuration
+scraper:
+  headless: true
+  timeout: 30
+  retry_times: 3
+  retry_backoff: [1, 2, 4]
+  user_agents:
+    - "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    - "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  selectors:
+    project_item: ["article.Box-row", ".Box-row"]
+    project_name: ["h2 a", ".h3 a"]
+    stars: ["span.d-inline-block.float-sm-right", ".float-sm-right"]
+
+# Database configuration
+database:
+  path: "/data/github_trending.db"
+
+# Aliyun OSS configuration
+oss:
+  access_key_id: ${OSS_ACCESS_KEY_ID}
+  access_key_secret: ${OSS_ACCESS_KEY_SECRET}
+  bucket_name: ${OSS_BUCKET_NAME}
+  endpoint: "oss-cn-hangzhou.aliyuncs.com"
+  path_prefix: "github-trending/"
+
+# DingTalk configuration
+dingtalk:
+  webhook_url: ${DINGTALK_WEBHOOK_URL}
+  secret: ${DINGTALK_SECRET}
+
+# Scheduler configuration
+scheduler:
+  run_time: "09:00"
+  timezone: "Asia/Shanghai"
+
+# Logging configuration
+logging:
+  level: "INFO"
+  file: "/app/logs/scraper.log"
+  max_bytes: 10485760  # 10MB
+  backup_count: 5
+  format: "{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} - {message}"
