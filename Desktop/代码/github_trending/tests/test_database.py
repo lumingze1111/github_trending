@@ -189,3 +189,23 @@ def test_get_previous_ranking_returns_empty_for_no_data(db):
     """Test getting previous rankings when no data exists."""
     rankings = db.get_previous_ranking("2026-03-12", "daily")
     assert rankings == {}
+
+
+def test_save_daily_report(db):
+    """Test saving daily report metadata."""
+    db.save_daily_report(
+        date="2026-03-13",
+        oss_url="https://example.oss.com/report.html",
+        dingtalk_sent=True
+    )
+
+    conn = db._get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM daily_reports WHERE report_date = ?", ("2026-03-13",))
+    result = cursor.fetchone()
+    conn.close()
+
+    assert result is not None
+    assert result[1] == "2026-03-13"  # report_date
+    assert result[2] == "https://example.oss.com/report.html"  # oss_url
+    assert result[3] == 1  # dingtalk_sent (True)

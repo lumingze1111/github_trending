@@ -202,3 +202,32 @@ class Database:
         except sqlite3.Error as e:
             logger.error(f"Failed to get previous ranking: {e}")
             raise DatabaseException(f"Failed to get previous ranking: {e}")
+
+    def save_daily_report(self, date: str, oss_url: str, dingtalk_sent: bool = False) -> None:
+        """
+        Save daily report metadata.
+
+        Args:
+            date: Report date (YYYY-MM-DD)
+            oss_url: OSS URL of the report
+            dingtalk_sent: Whether DingTalk notification was sent
+        """
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                INSERT INTO daily_reports (report_date, oss_url, dingtalk_sent, created_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(report_date) DO UPDATE SET
+                    oss_url = excluded.oss_url,
+                    dingtalk_sent = excluded.dingtalk_sent
+            """, (date, oss_url, 1 if dingtalk_sent else 0, datetime.now().isoformat()))
+
+            conn.commit()
+            logger.info(f"Saved daily report metadata for {date}")
+        except sqlite3.Error as e:
+            logger.error(f"Failed to save daily report: {e}")
+            raise DatabaseException(f"Failed to save daily report: {e}")
+        finally:
+            conn.close()
