@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Trending - {{ date }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background: #f6f8fa;
+            color: #24292e;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        header .date {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: white;
+            border: 2px solid #e1e4e8;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .tab.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .summary {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .summary h2 {
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .stat {
+            padding: 15px;
+            background: #f6f8fa;
+            border-radius: 6px;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #586069;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #24292e;
+        }
+
+        .project-card {
+            background: white;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .project-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .project-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .project-rank {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #667eea;
+            min-width: 40px;
+        }
+
+        .project-name {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #0366d6;
+            text-decoration: none;
+        }
+
+        .project-name:hover {
+            text-decoration: underline;
+        }
+
+        .project-description {
+            color: #586069;
+            margin: 10px 0;
+        }
+
+        .project-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 10px 0;
+            font-size: 0.9em;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .language-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            background: #f1f8ff;
+            color: #0366d6;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+
+        .highlights {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .highlight {
+            padding: 4px 10px;
+            background: #fff5b1;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8em;
+            }
+
+            .project-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .summary-stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 GitHub Trending 日报</h1>
+            <div class="date">{{ date }}</div>
+        </header>
+
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('daily')">📅 今日</div>
+            <div class="tab" onclick="showTab('weekly')">📊 本周</div>
+            <div class="tab" onclick="showTab('monthly')">📈 本月</div>
+        </div>
+
+        <!-- Daily Tab -->
+        <div id="daily" class="tab-content active">
+            {% if daily_summary %}
+            <div class="summary">
+                <h2>今日概览</h2>
+                <div class="summary-stats">
+                    <div class="stat">
+                        <div class="stat-label">项目总数</div>
+                        <div class="stat-value">{{ daily_summary.total_projects }}</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">今日新增 Stars</div>
+                        <div class="stat-value">{{ "{:,}".format(daily_summary.total_stars_today) }}</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">平均 Stars</div>
+                        <div class="stat-value">{{ "{:,}".format(daily_summary.avg_stars_today) }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% for project in daily_projects %}
+            <div class="project-card">
+                <div class="project-header">
+                    <span class="project-rank">#{{ project.ranking }}</span>
+                    <a href="{{ project.url }}" class="project-name" target="_blank">
+                        {{ project.name }}
+                    </a>
+                </div>
+
+                {% if project.description %}
+                <div class="project-description">{{ project.description }}</div>
+                {% endif %}
+
+                <div class="project-meta">
+                    {% if project.language %}
+                    <span class="language-badge">{{ project.language }}</span>
+                    {% endif %}
+                    <span class="meta-item">⭐ {{ "{:,}".format(project.stars) }}</span>
+                    <span class="meta-item">🍴 {{ "{:,}".format(project.forks) }}</span>
+                    <span class="meta-item">✨ {{ "{:,}".format(project.stars_today) }} stars today</span>
+                </div>
+
+                {% if project.highlights %}
+                <div class="highlights">
+                    {% for highlight in project.highlights %}
+                    <span class="highlight">{{ highlight }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Weekly Tab -->
+        <div id="weekly" class="tab-content">
+            {% if weekly_summary %}
+            <div class="summary">
+                <h2>本周概览</h2>
+                <div class="summary-stats">
+                    <div class="stat">
+                        <div class="stat-label">项目总数</div>
+                        <div class="stat-value">{{ weekly_summary.total_projects }}</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">本周新增 Stars</div>
+                        <div class="stat-value">{{ "{:,}".format(weekly_summary.total_stars_today) }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% for project in weekly_projects %}
+            <div class="project-card">
+                <div class="project-header">
+                    <span class="project-rank">#{{ project.ranking }}</span>
+                    <a href="{{ project.url }}" class="project-name" target="_blank">
+                        {{ project.name }}
+                    </a>
+                </div>
+
+                {% if project.description %}
+                <div class="project-description">{{ project.description }}</div>
+                {% endif %}
+
+                <div class="project-meta">
+                    {% if project.language %}
+                    <span class="language-badge">{{ project.language }}</span>
+                    {% endif %}
+                    <span class="meta-item">⭐ {{ "{:,}".format(project.stars) }}</span>
+                    <span class="meta-item">🍴 {{ "{:,}".format(project.forks) }}</span>
+                    <span class="meta-item">✨ {{ "{:,}".format(project.stars_today) }} stars this week</span>
+                </div>
+
+                {% if project.highlights %}
+                <div class="highlights">
+                    {% for highlight in project.highlights %}
+                    <span class="highlight">{{ highlight }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Monthly Tab -->
+        <div id="monthly" class="tab-content">
+            {% if monthly_summary %}
+            <div class="summary">
+                <h2>本月概览</h2>
+                <div class="summary-stats">
+                    <div class="stat">
+                        <div class="stat-label">项目总数</div>
+                        <div class="stat-value">{{ monthly_summary.total_projects }}</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">本月新增 Stars</div>
+                        <div class="stat-value">{{ "{:,}".format(monthly_summary.total_stars_today) }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% for project in monthly_projects %}
+            <div class="project-card">
+                <div class="project-header">
+                    <span class="project-rank">#{{ project.ranking }}</span>
+                    <a href="{{ project.url }}" class="project-name" target="_blank">
+                        {{ project.name }}
+                    </a>
+                </div>
+
+                {% if project.description %}
+                <div class="project-description">{{ project.description }}</div>
+                {% endif %}
+
+                <div class="project-meta">
+                    {% if project.language %}
+                    <span class="language-badge">{{ project.language }}</span>
+                    {% endif %}
+                    <span class="meta-item">⭐ {{ "{:,}".format(project.stars) }}</span>
+                    <span class="meta-item">🍴 {{ "{:,}".format(project.forks) }}</span>
+                    <span class="meta-item">✨ {{ "{:,}".format(project.stars_today) }} stars this month</span>
+                </div>
+
+                {% if project.highlights %}
+                <div class="highlights">
+                    {% for highlight in project.highlights %}
+                    <span class="highlight">{{ highlight }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabName) {
+            // Hide all tab contents
+            const contents = document.querySelectorAll('.tab-content');
+            contents.forEach(content => content.classList.remove('active'));
+
+            // Remove active class from all tabs
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>
