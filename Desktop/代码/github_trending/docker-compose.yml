@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  github-trending-scraper:
+    build: .
+    container_name: github_trending_scraper
+    restart: unless-stopped
+
+    volumes:
+      # Persist database
+      - ./data:/data
+      # Persist logs
+      - ./logs:/app/logs
+      # Mount config (optional, for easy updates)
+      - ./config.yaml:/app/config.yaml:ro
+
+    environment:
+      # Timezone
+      - TZ=Asia/Shanghai
+
+      # OSS Configuration (from .env file)
+      - OSS_ACCESS_KEY_ID=${OSS_ACCESS_KEY_ID}
+      - OSS_ACCESS_KEY_SECRET=${OSS_ACCESS_KEY_SECRET}
+      - OSS_BUCKET_NAME=${OSS_BUCKET_NAME}
+
+      # DingTalk Configuration (from .env file)
+      - DINGTALK_WEBHOOK_URL=${DINGTALK_WEBHOOK_URL}
+      - DINGTALK_SECRET=${DINGTALK_SECRET}
+
+    env_file:
+      - .env
+
+    # Resource limits (optional)
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    # Health check (optional)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
