@@ -642,3 +642,355 @@ git commit -m "feat: add CustomMarkdownImage widget for recipe images
 Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 ```
 
+
+---
+
+## Chunk 3: UI Screens
+
+### Task 8: Create HomeScreen
+
+**Files:**
+- Create: `howtocook_app/lib/screens/home_screen.dart`
+
+- [ ] **Step 1: Create screens directory**
+
+```bash
+mkdir -p lib/screens
+```
+
+- [ ] **Step 2: Write HomeScreen**
+
+Create `lib/screens/home_screen.dart`:
+
+```dart
+import 'package:flutter/material.dart';
+import '../data/recipe_index.dart';
+import 'recipe_list_screen.dart';
+
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('程序员做饭指南'),
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      ),
+      body: GridView.builder(
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 1.2,
+        ),
+        itemCount: allCategories.length,
+        itemBuilder: (context, index) {
+          final category = allCategories[index];
+          return Card(
+            elevation: 2,
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => RecipeListScreen(category: category),
+                  ),
+                );
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(category.icon, size: 40, color: Theme.of(context).colorScheme.primary),
+                    const SizedBox(height: 8),
+                    Text(
+                      category.name,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${category.recipeCount} 道菜',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+- [ ] **Step 3: Verify compiles**
+
+```bash
+flutter analyze lib/screens/home_screen.dart
+```
+
+Expected: No issues found
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add lib/screens/
+git commit -m "feat: add HomeScreen with category grid
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 9: Create RecipeListScreen
+
+**Files:**
+- Modify: `howtocook_app/lib/screens/recipe_list_screen.dart`
+
+- [ ] **Step 1: Write RecipeListScreen**
+
+Create `lib/screens/recipe_list_screen.dart`:
+
+```dart
+import 'package:flutter/material.dart';
+import '../models/category.dart';
+import 'recipe_detail_screen.dart';
+
+class RecipeListScreen extends StatelessWidget {
+  final Category category;
+
+  const RecipeListScreen({super.key, required this.category});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(category.name),
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      ),
+      body: ListView.separated(
+        padding: const EdgeInsets.all(8),
+        itemCount: category.recipes.length,
+        separatorBuilder: (_, __) => const Divider(height: 1),
+        itemBuilder: (context, index) {
+          final recipe = category.recipes[index];
+          return ListTile(
+            leading: Icon(category.icon, color: Theme.of(context).colorScheme.primary),
+            title: Text(recipe.name),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => RecipeDetailScreen(recipe: recipe),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+- [ ] **Step 2: Verify compiles**
+
+```bash
+flutter analyze lib/screens/recipe_list_screen.dart
+```
+
+Expected: No issues found
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add lib/screens/recipe_list_screen.dart
+git commit -m "feat: add RecipeListScreen
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 10: Create RecipeDetailScreen
+
+**Files:**
+- Create: `howtocook_app/lib/screens/recipe_detail_screen.dart`
+
+- [ ] **Step 1: Write RecipeDetailScreen**
+
+Create `lib/screens/recipe_detail_screen.dart`:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import '../models/recipe.dart';
+import '../services/asset_loader.dart';
+import '../widgets/custom_markdown_image.dart';
+
+class RecipeDetailScreen extends StatefulWidget {
+  final Recipe recipe;
+
+  const RecipeDetailScreen({super.key, required this.recipe});
+
+  @override
+  State<RecipeDetailScreen> createState() => _RecipeDetailScreenState();
+}
+
+class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
+  late Future<String> _contentFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _contentFuture = AssetLoader.loadRecipe(widget.recipe.filePath);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final recipeDir = AssetLoader.getRecipeDirectory(widget.recipe.filePath);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.recipe.name),
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+      ),
+      body: FutureBuilder<String>(
+        future: _contentFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('加载失败: ${snapshot.error}'));
+          }
+          return Markdown(
+            data: snapshot.data!,
+            imageBuilder: (uri, title, alt) {
+              return CustomMarkdownImage(
+                uri: uri,
+                recipeDirectory: recipeDir,
+              );
+            },
+            styleSheet: MarkdownStyleSheet(
+              h1: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              h2: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              p: const TextStyle(fontSize: 15, height: 1.6),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+```
+
+- [ ] **Step 2: Verify compiles**
+
+```bash
+flutter analyze lib/screens/recipe_detail_screen.dart
+```
+
+Expected: No issues found
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add lib/screens/recipe_detail_screen.dart
+git commit -m "feat: add RecipeDetailScreen with Markdown rendering
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+```
+
+---
+
+## Chunk 4: Main App Entry and APK Build
+
+### Task 11: Update main.dart
+
+**Files:**
+- Modify: `howtocook_app/lib/main.dart`
+
+- [ ] **Step 1: Replace main.dart**
+
+Replace the contents of `lib/main.dart` with:
+
+```dart
+import 'package:flutter/material.dart';
+import 'screens/home_screen.dart';
+
+void main() {
+  runApp(const HowToCookApp());
+}
+
+class HowToCookApp extends StatelessWidget {
+  const HowToCookApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: '程序员做饭指南',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
+        useMaterial3: true,
+      ),
+      home: const HomeScreen(),
+      debugShowCheckedModeBanner: false,
+    );
+  }
+}
+```
+
+- [ ] **Step 2: Verify full project compiles**
+
+```bash
+flutter analyze
+```
+
+Expected: No issues found
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add lib/main.dart
+git commit -m "feat: update main.dart with HowToCookApp entry point
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+```
+
+### Task 12: Build APK
+
+**Files:**
+- No new files (build output)
+
+- [ ] **Step 1: Build release APK**
+
+```bash
+flutter build apk --release
+```
+
+Expected: APK generated at `build/app/outputs/flutter-apk/app-release.apk`
+
+- [ ] **Step 2: Verify APK exists**
+
+```bash
+ls -lh build/app/outputs/flutter-apk/app-release.apk
+```
+
+Expected: File exists, size > 10MB
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add -A
+git commit -m "feat: complete HowToCook Android app implementation
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
+```
