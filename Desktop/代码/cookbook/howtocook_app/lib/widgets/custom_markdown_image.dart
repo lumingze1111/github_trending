@@ -21,10 +21,17 @@ class CustomMarkdownImage extends StatelessWidget {
 
     // If it's a relative path, resolve it relative to recipe directory
     if (!imagePath.startsWith('/')) {
+      // recipeDirectory is already relative to assets/recipes/
+      // e.g., "dishes/breakfast"
       imagePath = path.join(recipeDirectory, imagePath);
+    } else {
+      // Remove leading / for absolute paths
+      imagePath = imagePath.substring(1);
     }
 
     // Build full asset path
+    // Don't add 'assets/recipes/' prefix since Image.asset expects
+    // paths relative to pubspec.yaml asset declarations
     final fullPath = path.normalize('assets/recipes/$imagePath');
 
     return fullPath;
@@ -46,8 +53,8 @@ class CustomMarkdownImage extends StatelessWidget {
               const Icon(Icons.broken_image, size: 48, color: Colors.grey),
               const SizedBox(height: 8),
               Text(
-                '图片加载失败: ${uri.path}',
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                '图片加载失败\n原始路径: ${uri.path}\n解析路径: $imagePath\n错误: $error',
+                style: const TextStyle(fontSize: 10, color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
             ],
