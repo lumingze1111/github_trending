@@ -462,16 +462,6 @@ final List<Category> allCategories = [
         filePath: 'dishes/dessert/烤蛋挞/烤蛋挞.md',
         category: 'dessert',
       ),
-      Recipe(
-        name: '辅料使用技巧',
-        filePath: 'tips/advanced/辅料技巧.md',
-        category: 'dessert',
-      ),
-      Recipe(
-        name: '油温判读技巧',
-        filePath: 'tips/advanced/油温判断技巧.md',
-        category: 'dessert',
-      ),
     ],
   ),
 ];

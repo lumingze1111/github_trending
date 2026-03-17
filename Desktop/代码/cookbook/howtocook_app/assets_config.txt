@@ -27,5 +27,3 @@
     - assets/recipes/dishes/staple/pizza/
     - assets/recipes/dishes/staple/日式咖喱饭/
     - assets/recipes/dishes/staple/烙饼/
-    - assets/recipes/tips/
-    - assets/recipes/tips/advanced/

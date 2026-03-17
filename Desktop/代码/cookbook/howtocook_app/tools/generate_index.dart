@@ -47,7 +47,23 @@ List<Map<String, dynamic>> parseReadme(String readme) {
     '酱料和其它材料': 'Icons.water_drop',
   };
 
+  final knownCategories = iconMap.keys.toSet();
+
   for (var line in lines) {
+    // Reset category when hitting a ## section (like "进阶知识学习")
+    if (line.startsWith('## ')) {
+      if (currentCategoryName != null && recipes.isNotEmpty) {
+        categories.add({
+          'id': _toCategoryId(currentCategoryName),
+          'name': currentCategoryName,
+          'icon': iconMap[currentCategoryName] ?? 'Icons.restaurant',
+          'recipes': List.from(recipes),
+        });
+        recipes.clear();
+      }
+      currentCategoryName = null;
+    }
+
     if (line.startsWith('### ')) {
       if (currentCategoryName != null && recipes.isNotEmpty) {
         categories.add({
@@ -58,7 +74,9 @@ List<Map<String, dynamic>> parseReadme(String readme) {
         });
         recipes.clear();
       }
-      currentCategoryName = line.substring(4).trim();
+      // Only track known food categories
+      final catName = line.substring(4).trim();
+      currentCategoryName = knownCategories.contains(catName) ? catName : null;
     }
 
     final recipeMatch = RegExp(r'\* \[(.+?)\]\((.+?)\)').firstMatch(line);
@@ -159,10 +177,15 @@ void generateAssetsConfig(List<Map<String, dynamic>> categories) {
   for (var cat in categories) {
     for (var recipe in cat['recipes'] as List) {
       final path = recipe['path'] as String;
-      final dir = path.substring(0, path.lastIndexOf('/'));
-      final parts = ('assets/recipes/$dir').split('/');
-      for (var i = 2; i <= parts.length; i++) {
-        dirs.add(parts.sublist(0, i).join('/'));
+      // Get directory of this recipe file
+      final lastSlash = path.lastIndexOf('/');
+      if (lastSlash == -1) continue;
+      final dir = path.substring(0, lastSlash);
+
+      // Add all ancestor directories
+      final parts = dir.split('/');
+      for (var i = 1; i <= parts.length; i++) {
+        dirs.add('assets/recipes/${parts.sublist(0, i).join('/')}');
       }
     }
   }
