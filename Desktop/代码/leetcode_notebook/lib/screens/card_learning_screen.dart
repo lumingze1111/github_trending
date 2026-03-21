@@ -200,24 +200,29 @@ class _CardLearningScreenState extends State<CardLearningScreen> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.search_off, size: 64, color: Colors.grey.shade400),
-          const SizedBox(height: 16),
-          Text('No problems match your filters',
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 16)),
-          const SizedBox(height: 16),
-          FilledButton.tonal(
-            onPressed: () {
-              context.read<FilterService>().resetFilters();
-              _refreshProblems();
-            },
-            child: const Text('Clear Filters'),
+  return Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.search_off, size: 64, color: AppTheme.textSecondary),
+        const SizedBox(height: 16),
+        Text('NO MATCH', style: AppTheme.pixelStyle(size: 12, color: AppTheme.textSecondary)),
+        const SizedBox(height: 16),
+        GestureDetector(
+          onTap: () {
+            context.read<FilterService>().resetFilters();
+            _refreshProblems();
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border.all(color: AppTheme.blue, width: 2),
+            ),
+            child: Text('CLEAR FILTERS', style: AppTheme.pixelStyle(size: 10, color: AppTheme.blue)),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 }
