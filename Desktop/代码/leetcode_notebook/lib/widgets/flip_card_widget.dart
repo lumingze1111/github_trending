@@ -167,8 +167,12 @@ class _FlipCardWidgetState extends State<FlipCardWidget> {
               final done = service.isCompleted(problem.id);
               return GestureDetector(
                 onTap: () {
-                  service.markCompleted(problem.id);
-                  service.incrementReview(problem.id);
+                  if (done) {
+                    service.unmarkCompleted(problem.id);
+                  } else {
+                    service.markCompleted(problem.id);
+                    service.incrementReview(problem.id);
+                  }
                 },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
