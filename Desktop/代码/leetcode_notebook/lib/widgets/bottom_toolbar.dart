@@ -102,7 +102,7 @@ class _ToolbarButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: isActive ? BoxDecoration(
-            color: const Color(0x1400B4FF),
+            color: effectiveColor.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(8),
           ) : null,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
