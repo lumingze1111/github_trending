@@ -45,7 +45,6 @@ class AppTheme {
   // Pixel border decoration
   static BoxDecoration pixelBorder({Color borderColor = blue, Color glowColor = const Color(0x4D00B4FF)}) {
     return BoxDecoration(
-      color: bgCard,
       border: Border.all(color: borderColor, width: 3),
       boxShadow: [BoxShadow(color: glowColor, blurRadius: 20, spreadRadius: 2)],
     );
@@ -72,7 +71,7 @@ class AppTheme {
     chipTheme: ChipThemeData(
       backgroundColor: bgCard,
       selectedColor: Color(0x4D00B4FF),
-      labelStyle: TextStyle(fontFamily: 'monospace', fontSize: 11),
+      labelStyle: monoStyle(size: 11),
       side: const BorderSide(color: blue, width: 1),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
     ),
