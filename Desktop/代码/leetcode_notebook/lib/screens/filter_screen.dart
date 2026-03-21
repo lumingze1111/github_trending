@@ -99,7 +99,6 @@ class _FilterScreenState extends State<FilterScreen> {
   }
 
   Widget _buildResultRow(LeetCodeProblem p) {
-    final listIndex = widget.problems.indexOf(p);
     final diffColor = AppTheme.difficultyColor(p.difficulty.name);
     final normalStyle = AppTheme.monoStyle(size: 13);
     final highlightStyle = AppTheme.monoStyle(size: 13, color: AppTheme.blue)
@@ -107,7 +106,7 @@ class _FilterScreenState extends State<FilterScreen> {
     final normalStyleSm =
         AppTheme.monoStyle(size: 11, color: AppTheme.textSecondary);
     return InkWell(
-      onTap: () => Navigator.pop(context, listIndex),
+      onTap: () => Navigator.pop(context, p.id.toString()),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(children: [

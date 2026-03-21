@@ -9,6 +9,7 @@ import 'package:leetcode_notebook/widgets/bottom_toolbar.dart';
 import 'package:leetcode_notebook/screens/statistics_screen.dart';
 import 'package:leetcode_notebook/screens/filter_screen.dart';
 import 'package:leetcode_notebook/theme/app_theme.dart';
+import 'package:leetcode_notebook/data/problems_data.dart';
 
 /// Main learning screen with flip cards and navigation
 class CardLearningScreen extends StatefulWidget {
@@ -79,19 +80,25 @@ class _CardLearningScreenState extends State<CardLearningScreen> {
 
   void _openFilter() async {
     final filterService = context.read<FilterService>();
-    final idx = await showModalBottomSheet<int>(
+    final String? selectedId = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => ChangeNotifierProvider.value(
         value: filterService,
-        child: FilterScreen(problems: filterService.getFilteredProblems()),
+        child: FilterScreen(problems: hot100Problems),
       ),
     );
     _refreshProblems();
-    if (idx != null && idx >= 0 && idx < _problems.length) {
-      _pageController.jumpToPage(idx);
-      setState(() => _currentIndex = idx);
+    if (selectedId != null) {
+      final idx = _problems.indexWhere((p) => p.id.toString() == selectedId);
+      if (idx >= 0) {
+        _pageController.jumpToPage(idx);
+        setState(() => _currentIndex = idx);
+      } else if (_problems.isNotEmpty) {
+        _pageController.jumpToPage(0);
+        setState(() => _currentIndex = 0);
+      }
     } else if (_problems.isNotEmpty) {
       _pageController.jumpToPage(0);
     }
