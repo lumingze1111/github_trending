@@ -54,7 +54,7 @@ class _FlipCardWidgetState extends State<FlipCardWidget> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 color: AppTheme.blue.withValues(alpha: 0.15),
                 child: Text('#${problem.leetcodeId}',
-                  style: AppTheme.pixelStyle(size: 9, color: AppTheme.blue)),
+                  style: AppTheme.pixelNumberStyle(size: 11, color: AppTheme.blue)),
               ),
               const Spacer(),
               Consumer<ProgressService>(builder: (context, service, _) {
