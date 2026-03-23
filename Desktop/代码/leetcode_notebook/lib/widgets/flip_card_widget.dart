@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flip_card/flip_card.dart';
 import 'package:flip_card/flip_card_controller.dart';
@@ -73,7 +74,7 @@ class _FlipCardWidgetState extends State<FlipCardWidget> {
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                color: const Color(0x2600B4FF),
+                color: AppTheme.blue.withValues(alpha: 0.15),
                 child: Text('#${problem.leetcodeId}',
                   style: AppTheme.pixelStyle(size: 9, color: AppTheme.blue)),
               ),
@@ -226,7 +227,7 @@ class _ComplexityBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0x2600B4FF),
+        color: AppTheme.blue.withValues(alpha: 0.15),
         border: Border.all(color: AppTheme.blue, width: 1),
       ),
       child: Text(
@@ -247,9 +248,20 @@ class _PixelCard extends StatelessWidget {
     return Stack(children: [
       Container(
         margin: const EdgeInsets.all(16),
-        decoration: AppTheme.pixelBorder().copyWith(color: bgColor ?? AppTheme.bgCard),
-        child: child,
+        decoration: AppTheme.pixelBorder().copyWith(
+          color: Colors.transparent, // 背景由 BackdropFilter 内层控制
+        ),
+        child: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              color: (bgColor ?? AppTheme.bgCard).withValues(alpha: 0.92),
+              child: child,
+            ),
+          ),
+        ),
       ),
+      // 四角装饰点
       Positioned(top: 16, left: 16, child: Container(width: 6, height: 6, color: AppTheme.green)),
       Positioned(top: 16, right: 16, child: Container(width: 6, height: 6, color: AppTheme.green)),
       Positioned(bottom: 16, left: 16, child: Container(width: 6, height: 6, color: AppTheme.green)),
