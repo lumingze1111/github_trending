@@ -19,14 +19,33 @@ class CardLearningScreen extends StatefulWidget {
   State<CardLearningScreen> createState() => _CardLearningScreenState();
 }
 
-class _CardLearningScreenState extends State<CardLearningScreen> {
+class _CardLearningScreenState extends State<CardLearningScreen>
+    with TickerProviderStateMixin {
   final PageController _pageController = PageController();
   int _currentIndex = 0;
   List<LeetCodeProblem> _problems = [];
+  late AnimationController _bgController;
+  late Animation<Alignment> _light1;
+  late Animation<Alignment> _light2;
 
   @override
   void initState() {
     super.initState();
+    _bgController = AnimationController(
+      duration: const Duration(seconds: 20),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _light1 = AlignmentTween(
+      begin: const Alignment(-0.5, -0.8),
+      end: const Alignment(0.5, 0.3),
+    ).animate(CurvedAnimation(parent: _bgController, curve: Curves.easeInOutSine));
+
+    _light2 = AlignmentTween(
+      begin: const Alignment(0.6, -0.5),
+      end: const Alignment(-0.4, 0.6),
+    ).animate(CurvedAnimation(parent: _bgController, curve: Curves.easeInOutSine));
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshProblems();
     });
@@ -35,6 +54,7 @@ class _CardLearningScreenState extends State<CardLearningScreen> {
   @override
   void dispose() {
     _pageController.dispose();
+    _bgController.dispose();
     super.dispose();
   }
 
@@ -128,6 +148,40 @@ class _CardLearningScreenState extends State<CardLearningScreen> {
     );
   }
 
+  Widget _buildAnimatedBackground() {
+    return AnimatedBuilder(
+      animation: _bgController,
+      builder: (context, _) {
+        return Stack(
+          children: [
+            // 基础背景
+            Container(color: AppTheme.bgDeep),
+            // 光源 1：冷雾蓝
+            Container(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: _light1.value,
+                  radius: 0.7,
+                  colors: const [Color(0x205BA4CF), Colors.transparent],
+                ),
+              ),
+            ),
+            // 光源 2：暗青绿
+            Container(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: _light2.value,
+                  radius: 0.7,
+                  colors: const [Color(0x204A9E82), Colors.transparent],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -144,7 +198,12 @@ class _CardLearningScreenState extends State<CardLearningScreen> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('LeetCode Hot 100', style: AppTheme.pixelStyle(size: 11, color: AppTheme.blue)),
+                Text(
+                  'LeetCode Hot 100',
+                  style: AppTheme.pixelStyle(size: 11, color: AppTheme.blue).copyWith(
+                    shadows: [Shadow(color: AppTheme.blue.withValues(alpha: 0.6), blurRadius: 8)],
+                  ),
+                ),
                 if (_problems.isNotEmpty)
                   Text(
                     filtered
@@ -174,18 +233,25 @@ class _CardLearningScreenState extends State<CardLearningScreen> {
           ),
         ],
       ),
-      body: _problems.isEmpty
-          ? _buildEmptyState()
-          : PageView.builder(
-              controller: _pageController,
-              itemCount: _problems.length,
-              onPageChanged: (index) {
-                setState(() => _currentIndex = index);
-              },
-              itemBuilder: (context, index) {
-                return FlipCardWidget(problem: _problems[index]);
-              },
-            ),
+      body: Stack(
+        children: [
+          // 动态背景层（全屏）
+          Positioned.fill(child: _buildAnimatedBackground()),
+          // 内容层
+          _problems.isEmpty
+              ? _buildEmptyState()
+              : PageView.builder(
+                  controller: _pageController,
+                  itemCount: _problems.length,
+                  onPageChanged: (index) {
+                    setState(() => _currentIndex = index);
+                  },
+                  itemBuilder: (context, index) {
+                    return FlipCardWidget(problem: _problems[index]);
+                  },
+                ),
+        ],
+      ),
       bottomNavigationBar: Consumer2<ProgressService, FilterService>(
         builder: (context, progressService, filterService, _) {
           final isFav = _problems.isNotEmpty
