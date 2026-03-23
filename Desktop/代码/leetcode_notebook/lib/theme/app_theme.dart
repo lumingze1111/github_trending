@@ -42,6 +42,27 @@ class AppTheme {
     }
   }
 
+  static TextStyle pixelNumberStyle({
+    double size = 14,
+    Color color = textPrimary,
+    FontWeight weight = FontWeight.normal
+  }) {
+    try {
+      return GoogleFonts.silkscreen(
+        fontSize: size,
+        color: color,
+        fontWeight: weight,
+      );
+    } catch (_) {
+      return TextStyle(
+        fontFamily: 'monospace',
+        fontSize: size,
+        color: color,
+        fontWeight: weight,
+      );
+    }
+  }
+
   // Pixel border decoration
   static BoxDecoration pixelBorder({Color borderColor = blue, Color? glowColor}) {
     final glow = glowColor ?? blue;
