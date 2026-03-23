@@ -247,7 +247,10 @@ class _CardLearningScreenState extends State<CardLearningScreen>
                     setState(() => _currentIndex = index);
                   },
                   itemBuilder: (context, index) {
-                    return FlipCardWidget(problem: _problems[index]);
+                    return FlipCardWidget(
+                      key: ValueKey(_problems[index].id),
+                      problem: _problems[index],
+                    );
                   },
                 ),
         ],
