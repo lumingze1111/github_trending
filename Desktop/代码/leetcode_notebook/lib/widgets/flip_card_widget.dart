@@ -24,37 +24,15 @@ class _FlipCardWidgetState extends State<FlipCardWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        RepaintBoundary(
-          child: FlipCard(
-            controller: _controller,
-            flipOnTouch: false,
-            speed: 400,
-            direction: FlipDirection.HORIZONTAL,
-            front: _buildFront(context),
-            back: _buildBack(context),
-          ),
-        ),
-        // Flip button overlay
-        Positioned(
-          right: 28,
-          bottom: 28,
-          child: GestureDetector(
-            onTap: () => _controller.toggleCard(),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppTheme.blue.withValues(alpha: 0.15),
-                border: Border.all(color: AppTheme.blue.withValues(alpha: 0.5), width: 1),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Icon(Icons.flip, size: 20, color: AppTheme.blue),
-            ),
-          ),
-        ),
-      ],
+    return RepaintBoundary(
+      child: FlipCard(
+        controller: _controller,
+        flipOnTouch: true,
+        speed: 400,
+        direction: FlipDirection.HORIZONTAL,
+        front: _buildFront(context),
+        back: _buildBack(context),
+      ),
     );
   }
 
@@ -131,6 +109,10 @@ class _FlipCardWidgetState extends State<FlipCardWidget> {
                 ),
               ),
             ),
+
+            // Blink cursor hint
+            const SizedBox(height: 8),
+            const Center(child: _BlinkingCursor()),
           ],
         ),
       ),
