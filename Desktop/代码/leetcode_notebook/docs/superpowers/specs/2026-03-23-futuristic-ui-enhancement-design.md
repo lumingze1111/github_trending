@@ -141,7 +141,8 @@ FlipCard(
   // ...
 )
 
-// 在卡片内容底部添加
+// 在卡片内容底部添加翻转按钮
+// 注意：FlipCardController 提供 toggleCard() 方法（已验证 flip_card 包 API）
 Positioned(
   right: 16,
   bottom: 16,
@@ -174,42 +175,84 @@ Positioned(
 
 在 `Scaffold` 背景上叠加动态渐变层：
 
+**实现机制：**
+- 使用 `AnimationController` 驱动动画（20 秒周期，循环播放）
+- 通过 `Tween<Alignment>` 控制光源位置变化
+- 使用 `AnimatedBuilder` 重建渐变层
+
 ```dart
+// 在 State 中添加
+late AnimationController _bgAnimationController;
+late Animation<Alignment> _lightSource1;
+late Animation<Alignment> _lightSource2;
+
+@override
+void initState() {
+  super.initState();
+  _bgAnimationController = AnimationController(
+    duration: Duration(seconds: 20),
+    vsync: this,
+  )..repeat(reverse: true);
+
+  _lightSource1 = AlignmentTween(
+    begin: Alignment(-0.5, -0.5),
+    end: Alignment(0.5, 0.5),
+  ).animate(CurvedAnimation(
+    parent: _bgAnimationController,
+    curve: Curves.easeInOutSine,
+  ));
+
+  _lightSource2 = AlignmentTween(
+    begin: Alignment(0.5, -0.5),
+    end: Alignment(-0.5, 0.5),
+  ).animate(CurvedAnimation(
+    parent: _bgAnimationController,
+    curve: Curves.easeInOutSine,
+  ));
+}
+
+// 在 build 中
 Stack(
   children: [
     // 原有背景
     Container(color: AppTheme.bgDeep),
 
     // 动态渐变层
-    AnimatedContainer(
-      duration: Duration(seconds: 20),
-      curve: Curves.easeInOutSine,
-      decoration: BoxDecoration(
-        gradient: RadialGradient(
-          center: Alignment(_animatedX1, _animatedY1),
-          radius: 0.6,
-          colors: [
-            Color(0x265BA4CF), // 冷雾蓝，15% opacity
-            Colors.transparent,
-          ],
-        ),
-      ),
+    AnimatedBuilder(
+      animation: _bgAnimationController,
+      builder: (context, child) {
+        return Container(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: _lightSource1.value,
+              radius: 0.6,
+              colors: [
+                Color(0x265BA4CF), // 冷雾蓝，15% opacity
+                Colors.transparent,
+              ],
+            ),
+          ),
+        );
+      },
     ),
 
     // 第二个光源
-    AnimatedContainer(
-      duration: Duration(seconds: 20),
-      curve: Curves.easeInOutSine,
-      decoration: BoxDecoration(
-        gradient: RadialGradient(
-          center: Alignment(_animatedX2, _animatedY2),
-          radius: 0.6,
-          colors: [
-            Color(0x264A9E82), // 暗青绿，15% opacity
-            Colors.transparent,
-          ],
-        ),
-      ),
+    AnimatedBuilder(
+      animation: _bgAnimationController,
+      builder: (context, child) {
+        return Container(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: _lightSource2.value,
+              radius: 0.6,
+              colors: [
+                Color(0x264A9E82), // 暗青绿，15% opacity
+                Colors.transparent,
+              ],
+            ),
+          ),
+        );
+      },
     ),
   ],
 )
@@ -218,7 +261,7 @@ Stack(
 **动画参数：**
 - 光源 1（冷雾蓝）：从左上 (-0.5, -0.5) 移动到右下 (0.5, 0.5)
 - 光源 2（暗青绿）：从右上 (0.5, -0.5) 移动到左下 (-0.5, 0.5)
-- 周期：20 秒循环
+- 周期：20 秒循环，往复播放（`repeat(reverse: true)`）
 - 曲线：`Curves.easeInOutSine`（平滑往复）
 
 ### 5.2 底部工具栏玻璃态
@@ -286,11 +329,9 @@ Text(
    - 添加玻璃态效果
    - 添加按钮点击微交互动画
 
-### 6.2 新增文件（可选）
+### 6.2 新增文件
 
-- **lib/widgets/animated_gradient_background.dart**
-  - 封装动态渐变背景逻辑
-  - 便于复用和维护
+**不建议新增文件。** 动态渐变背景逻辑应直接在 `CardLearningScreen` 的 State 中实现，避免过度抽象。如果后续发现需要在多个页面复用，再考虑提取为独立组件。
 
 ---
 
@@ -315,7 +356,13 @@ Text(
 1. 在 `FlipCardWidget` 外层添加 `RepaintBoundary`
 2. 动态背景使用 `const` 构造函数
 3. 按钮微交互使用 `AnimatedScale`（性能优于 `Transform`）
-4. 低端设备检测：可选择性降低模糊强度或禁用动态背景
+4. **低端设备优化（可选）：**
+   - 检测方式：使用 `Platform.isAndroid` 结合设备内存检测（通过 `device_info_plus` 包）
+   - 阈值：RAM < 4GB 或 Android API < 28 时降级
+   - 降级策略：
+     - 禁用动态渐变背景
+     - 降低模糊强度（sigma: 10 → 5）
+     - 减少阴影层数（3 层 → 2 层）
 
 ---
 
