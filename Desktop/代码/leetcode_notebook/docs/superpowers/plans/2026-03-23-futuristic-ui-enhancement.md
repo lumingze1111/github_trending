@@ -115,6 +115,8 @@ git commit -m "feat: update theme to cool-toned palette with three-layer shadow"
 
 注意：`_buildFront` 和 `_buildBack` 返回的是 `_PixelCard`，它用 `Stack` 实现四角装饰点。翻转按钮要作为独立的 `Positioned` 叠加在外层，不能放在 `_PixelCard` 内部（否则点击会触发 Stack 内部的子组件）。
 
+**关于翻转按钮位置的说明：** 规范文档中的代码示例将按钮放在 FlipCard 前/后面板内部，但本计划将按钮放在包裹整个 `FlipCard` 的外层 `Stack` 中。这是经过深思熟虑的改进——无论卡片处于哪一面，按钮始终可见且可点击，无需在前后两面各放一个按钮。请遵循本计划的结构，而非规范中的示例代码。
+
 - [ ] **Step 1: 修改 FlipCard 关闭触摸翻转**
 
 在 `_FlipCardWidgetState.build()` 中，将 `flipOnTouch: true` 改为 `false`，`speed: 500` 改为 `400`：
@@ -485,7 +487,17 @@ ClipRect(
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            // ... 原有六个按钮保持不变
+            // 将原有六个 _ToolbarButton 声明原样复制到此处（顺序：Prev、Next、Random、Filter、Favorite、Stats）：
+            _ToolbarButton(icon: Icons.arrow_back_ios_rounded, label: 'Prev', onTap: onPrevious),
+            _ToolbarButton(icon: Icons.arrow_forward_ios_rounded, label: 'Next', onTap: onNext),
+            _ToolbarButton(icon: Icons.shuffle_rounded, label: 'Random', onTap: onRandom),
+            _ToolbarButton(icon: Icons.filter_list_rounded, label: 'Filter', onTap: onFilter,
+              color: hasActiveFilters ? AppTheme.blue : null),
+            _ToolbarButton(
+              icon: isFavorited ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+              label: 'Favorite', onTap: onFavorite,
+              color: isFavorited ? AppTheme.green : null),
+            _ToolbarButton(icon: Icons.bar_chart_rounded, label: 'Stats', onTap: onStatistics),
           ],
         ),
       ),
