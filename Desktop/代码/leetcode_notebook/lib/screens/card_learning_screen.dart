@@ -225,7 +225,7 @@ class _CardLearningScreenState extends State<CardLearningScreen>
                 child: Center(
                   child: Text(
                     '$completed/$total',
-                    style: AppTheme.monoStyle(size: 13, color: AppTheme.green, weight: FontWeight.bold),
+                    style: AppTheme.pixelNumberStyle(size: 15, color: AppTheme.green, weight: FontWeight.bold),
                   ),
                 ),
               );
