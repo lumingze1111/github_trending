@@ -27,7 +27,9 @@ After a problem is first completed, it is scheduled for review at these interval
 | 5th review | 15 days |
 | 6th+ review | 30 days (permanent maintenance) |
 
-The interval is looked up using `reviewCount` (0-indexed before the review happens):
+**`reviewCount` semantics:** `reviewCount` is the number of review sessions already completed (0 = never reviewed yet). The interval lookup uses the current `reviewCount` to determine how long to wait before the *next* review.
+
+The interval is looked up using `reviewCount`:
 - `reviewCount == 0` → next review in 1 day
 - `reviewCount == 1` → next review in 2 days
 - `reviewCount == 2` → next review in 4 days
@@ -35,15 +37,26 @@ The interval is looked up using `reviewCount` (0-indexed before the review happe
 - `reviewCount == 4` → next review in 15 days
 - `reviewCount >= 5` → next review in 30 days
 
+**`reviewCount` at first completion:** The existing `FlipCardWidget` calls both `markCompleted()` and `incrementReview()` when the user taps "MARK AS DONE". This means at first completion, `reviewCount` is already 1 and `lastReviewDate` is set. The spec accounts for this:
+- The review schedule starts from `reviewCount == 1` → 2-day wait (the 1-day "next-day review" is effectively the day-0 completion itself)
+- `lastReviewDate` is used as the baseline (not `firstCompletedDate`) since it is always set after the first completion
+- Do **not** change the existing `markCompleted` + `incrementReview` call pair
+
 ### Due-Today Determination
 
 A completed problem is "due today" if:
 
-```
-daysSince(lastReviewDate ?? firstCompletedDate) >= intervals[reviewCount]
+```dart
+int interval = reviewCount < intervals.length
+    ? intervals[reviewCount]
+    : maintenanceInterval;
+int daysSince = DateTime.now().difference(lastReviewDate!).inDays;
+bool isDue = daysSince >= interval;
 ```
 
-Where `daysSince` counts calendar days (not 24-hour periods) using midnight boundaries in local time.
+`daysSince` uses `.inDays` (integer truncation of the Duration), consistent with calendar-day counting. `lastReviewDate` is always non-null for completed problems (set by `incrementReview` at first completion).
+
+If `lastReviewDate` is null despite `isCompleted == true` (legacy data inconsistency), treat the problem as due immediately.
 
 ### Daily Queue
 
@@ -91,13 +104,38 @@ Add one method to `ProgressService` to expose the daily queue to the UI:
 List<int> getTodayReviewProblems({int limit = 20});
 ```
 
-This calls `ReviewService.getDueToday()` internally.
+This calls `ReviewService.getDueToday()` passing `_progressBox.values.toList()` and the limit parameter. `ProgressService` does **not** depend on `SettingsService` directly — the caller (`CardLearningScreen`) reads the limit from `SettingsService` and passes it in.
 
-### Settings: Daily Limit
+### Settings: `SettingsService`
 
-User's configured daily limit is stored in `SharedPreferences` under the key `daily_review_limit` (int, default 20, range 5–50).
+A new async-initialized service wrapping `SharedPreferences`:
 
-A new `SettingsService` (or simple static helper) wraps the read/write.
+```dart
+class SettingsService extends ChangeNotifier {
+  static const _key = 'daily_review_limit';
+  static const defaultLimit = 20;
+
+  int _dailyLimit = defaultLimit;
+  int get dailyLimit => _dailyLimit;
+
+  /// Must be called once at app startup (in main.dart, after Hive init)
+  Future<void> init() async {
+    final prefs = await SharedPreferences.getInstance();
+    _dailyLimit = prefs.getInt(_key) ?? defaultLimit;
+  }
+
+  Future<void> setDailyLimit(int value) async {
+    _dailyLimit = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_key, value);
+  }
+}
+```
+
+`SettingsService` is registered as a `ChangeNotifierProvider` in `main.dart` alongside `ProgressService`, initialized before `runApp` via `SettingsService().init()`.
+
+`shared_preferences` must be added to `pubspec.yaml` as a new dependency.
 
 ---
 
@@ -105,7 +143,19 @@ A new `SettingsService` (or simple static helper) wraps the read/write.
 
 ### Home Screen Banner
 
-A `ReviewBanner` widget is inserted at the top of the card list in `CardLearningScreen`, above the existing card `PageView`.
+`CardLearningScreen.build()` currently renders a `Stack` body with `Positioned.fill` background and a `PageView` as the single content layer. To insert the banner, the content layer changes from a bare `PageView` to a `Column` wrapping the banner + `PageView`:
+
+```dart
+// Body content layer (replaces the PageView directly):
+Column(
+  children: [
+    ReviewBanner(),          // zero-height when hidden
+    Expanded(child: PageView.builder(...)),
+  ],
+)
+```
+
+The `Positioned.fill` animated background remains unchanged. `ReviewBanner` is a `Consumer<ProgressService>` widget that reads the due-today count.
 
 **States:**
 
@@ -134,7 +184,7 @@ In `StatisticsScreen`, add a new section card "每日复习设置" at the bottom
 
 - Label: "每日复习上限"
 - Current value displayed (e.g. "20 题")
-- A `Slider` (min: 5, max: 50, divisions: 9, default: 20)
+- A `Slider` (min: 5, max: 50, step size: 5, so `divisions: 9`, values: 5/10/15/…/50)
 - Changes are persisted immediately to `SharedPreferences`
 
 ---
@@ -145,9 +195,9 @@ In `StatisticsScreen`, add a new section card "每日复习设置" at the bottom
 |---|---|---|
 | `ReviewService` | Interval math, due-today logic | `UserProgress` model |
 | `ProgressService` | Expose `getTodayReviewProblems()` | `ReviewService`, Hive |
-| `SettingsService` | Read/write daily limit | `SharedPreferences` |
+| `SettingsService` | Read/write daily limit (async init) | `SharedPreferences` |
 | `ReviewBanner` | Home screen banner widget | `ProgressService` |
-| `CardLearningScreen` | Orchestrate review mode, pass filtered list | `ProgressService`, `SettingsService` |
+| `CardLearningScreen` | Orchestrate review mode, pass filtered list + limit | `ProgressService`, `SettingsService` |
 | `StatisticsScreen` | Settings slider | `SettingsService` |
 
 ---
