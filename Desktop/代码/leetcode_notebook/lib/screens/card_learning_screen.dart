@@ -209,7 +209,7 @@ class _CardLearningScreenState extends State<CardLearningScreen>
                     filtered
                         ? '${_currentIndex + 1} / ${_problems.length} (filtered)'
                         : '${_currentIndex + 1} / ${_problems.length}',
-                    style: AppTheme.monoStyle(size: 11, color: AppTheme.green),
+                    style: AppTheme.pixelNumberStyle(size: 13, color: AppTheme.green),
                   ),
               ],
             );
