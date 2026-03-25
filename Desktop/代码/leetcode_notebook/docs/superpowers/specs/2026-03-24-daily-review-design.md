@@ -98,13 +98,18 @@ class ReviewService {
 
 ### `ProgressService` Addition
 
-Add one method to `ProgressService` to expose the daily queue to the UI:
+Add two methods to `ProgressService`:
 
 ```dart
+/// Returns sorted, capped list of problem IDs due for review today
 List<int> getTodayReviewProblems({int limit = 20});
+
+/// Increment review count and update lastReviewDate for a problem
+/// (already exists in ProgressService — confirm no change needed)
+void incrementReview(int problemId); // existing method, no changes
 ```
 
-This calls `ReviewService.getDueToday()` passing `_progressBox.values.toList()` and the limit parameter. `ProgressService` does **not** depend on `SettingsService` directly — the caller (`CardLearningScreen`) reads the limit from `SettingsService` and passes it in.
+`getTodayReviewProblems` calls `ReviewService.getDueToday()` passing `_progressBox.values.toList()` and the limit parameter. `ProgressService` does **not** depend on `SettingsService` directly — the caller (`CardLearningScreen`) reads the limit from `SettingsService` and passes it in.
 
 ### Settings: `SettingsService`
 
@@ -183,7 +188,7 @@ The `Positioned.fill` animated background remains unchanged. `ReviewBanner` is a
 | Problems due today (N > 0) | "📅 今日复习  N 题待复习  [开始复习 →]" (accent color) |
 | All due problems reviewed | "🎉 今日复习已完成" (green) |
 
-The banner is a `Consumer<ProgressService>` so it reacts live to state changes.
+The banner is a `Consumer2<ProgressService, SettingsService>` so it reacts live to state changes in either service.
 
 ### Review Mode
 
