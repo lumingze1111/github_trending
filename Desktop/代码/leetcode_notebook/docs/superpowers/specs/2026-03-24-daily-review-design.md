@@ -23,9 +23,9 @@ The `intervals` array is indexed by `reviewCount` value at the time of the due-t
 ```dart
 // intervals[reviewCount] = days to wait before next review
 // index 0 is unused (reviewCount is always >= 1 for completed problems)
+// intervals[1]=2, intervals[2]=4, intervals[3]=7, intervals[4]=15
 static const List<int> intervals = [0, 2, 4, 7, 15];
-//                                   ^unused  ^ index 1..4 = reviews 1..4
-static const int maintenanceInterval = 30; // reviewCount >= 5
+static const int maintenanceInterval = 30; // used when reviewCount >= intervals.length (>= 5)
 ```
 
 The effective schedule (days since last review/completion):
@@ -83,7 +83,9 @@ A new stateless service class with a single clear responsibility: computing the 
 
 ```dart
 class ReviewService {
-  static const List<int> intervals = [1, 2, 4, 7, 15];
+  // index 0 unused; reviewCount is always >= 1 for completed problems
+  // intervals[1]=2d, intervals[2]=4d, intervals[3]=7d, intervals[4]=15d
+  static const List<int> intervals = [0, 2, 4, 7, 15];
   static const int maintenanceInterval = 30;
 
   /// Returns true if the problem is due for review today
@@ -116,10 +118,13 @@ class SettingsService extends ChangeNotifier {
   int _dailyLimit = defaultLimit;
   int get dailyLimit => _dailyLimit;
 
-  /// Must be called once at app startup (in main.dart, after Hive init)
   Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    _dailyLimit = prefs.getInt(_key) ?? defaultLimit;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _dailyLimit = prefs.getInt(_key) ?? defaultLimit;
+    } catch (_) {
+      // Fall back to default silently
+    }
   }
 
   Future<void> setDailyLimit(int value) async {
@@ -168,7 +173,7 @@ Column(
 )
 ```
 
-The `Positioned.fill` animated background remains unchanged. `ReviewBanner` is a `Consumer<ProgressService>` widget that reads the due-today count by calling `progressService.getTodayReviewProblems(limit: context.read<SettingsService>().dailyLimit).length`. It therefore depends on both `ProgressService` and `SettingsService` (both available via `Provider` at the widget tree level).
+The `Positioned.fill` animated background remains unchanged. `ReviewBanner` is a `Consumer2<ProgressService, SettingsService>` widget so it rebuilds when either the progress state or the daily limit changes. It reads the due-today count by calling `progressService.getTodayReviewProblems(limit: settingsService.dailyLimit).length`.
 
 **States:**
 
