@@ -45,6 +45,7 @@ dependencies:
   flutter_markdown: ^0.6.18
   google_fonts: ^6.2.1              # Pixel-art typography (PressStart2P, JetBrains Mono)
   intl: ^0.19.0                  # Date formatting
+  shared_preferences: ^2.3.0    # Persist user settings
 
 dev_dependencies:
   flutter_test:
