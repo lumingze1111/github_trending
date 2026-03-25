@@ -12,8 +12,15 @@ import 'package:leetcode_notebook/theme/app_theme.dart';
 /// Flip card widget showing problem front and solution back
 class FlipCardWidget extends StatefulWidget {
   final LeetCodeProblem problem;
+  final bool isReviewMode;
+  final void Function(int problemId)? onReviewDone;
 
-  const FlipCardWidget({super.key, required this.problem});
+  const FlipCardWidget({
+    super.key,
+    required this.problem,
+    this.isReviewMode = false,
+    this.onReviewDone,
+  });
 
   @override
   State<FlipCardWidget> createState() => _FlipCardWidgetState();
@@ -162,35 +169,51 @@ class _FlipCardWidgetState extends State<FlipCardWidget> {
               ),
             ),
 
-            // Mark Done button
+            // Action button
             const SizedBox(height: 8),
-            Consumer<ProgressService>(builder: (context, service, _) {
-              final done = service.isCompleted(problem.id);
-              return GestureDetector(
-                onTap: () {
-                  if (done) {
-                    service.unmarkCompleted(problem.id);
-                  } else {
-                    service.markCompleted(problem.id);
-                    service.incrementReview(problem.id);
-                  }
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    color: done ? AppTheme.green : Colors.transparent,
-                    border: Border.all(color: done ? AppTheme.green : AppTheme.blue, width: 2),
-                  ),
-                  child: Center(child: Text(
-                    done ? '✓ COMPLETED' : 'MARK AS DONE',
-                    style: AppTheme.pixelStyle(size: 10,
-                      color: done ? AppTheme.bgDeep : AppTheme.blue),
-                  )),
-                ),
-              );
-            }),
+            widget.isReviewMode
+                ? GestureDetector(
+                    onTap: () => widget.onReviewDone?.call(widget.problem.id),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        color: AppTheme.green,
+                        border: Border.all(color: AppTheme.green, width: 2),
+                      ),
+                      child: Center(child: Text(
+                        '✓ 已复习',
+                        style: AppTheme.pixelStyle(size: 10, color: AppTheme.bgDeep),
+                      )),
+                    ),
+                  )
+                : Consumer<ProgressService>(builder: (context, service, _) {
+                    final done = service.isCompleted(widget.problem.id);
+                    return GestureDetector(
+                      onTap: () {
+                        if (done) {
+                          service.unmarkCompleted(widget.problem.id);
+                        } else {
+                          service.markCompleted(widget.problem.id);
+                          service.incrementReview(widget.problem.id);
+                        }
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: done ? AppTheme.green : Colors.transparent,
+                          border: Border.all(color: done ? AppTheme.green : AppTheme.blue, width: 2),
+                        ),
+                        child: Center(child: Text(
+                          done ? '✓ COMPLETED' : 'MARK AS DONE',
+                          style: AppTheme.pixelStyle(size: 10,
+                            color: done ? AppTheme.bgDeep : AppTheme.blue),
+                        )),
+                      ),
+                    );
+                  }),
           ],
         ),
       ),
