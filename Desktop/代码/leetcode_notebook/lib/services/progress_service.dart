@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
 import 'package:leetcode_notebook/models/user_progress.dart';
+import 'package:leetcode_notebook/services/review_service.dart';
 
 /// Service for managing user progress data
 class ProgressService extends ChangeNotifier {
@@ -89,5 +90,11 @@ class ProgressService extends ChangeNotifier {
         .where((p) => p.isFavorited)
         .map((p) => p.problemId)
         .toList();
+  }
+
+  /// Get problem IDs due for review today, sorted by urgency, capped at [limit].
+  List<int> getTodayReviewProblems({int limit = 20}) {
+    final reviewService = ReviewService();
+    return reviewService.getDueToday(_progressBox.values.toList(), limit: limit);
   }
 }
