@@ -8,15 +8,14 @@ import 'package:leetcode_notebook/models/user_progress.dart';
 class ReviewService {
   static const List<int> intervals = [0, 2, 4, 7, 15];
   static const int maintenanceInterval = 30;
+  static const int _maxOverdue = 999999;
 
   /// Returns true if the problem is due for review today.
   bool isDueToday(UserProgress progress) {
     if (!progress.isCompleted) return false;
     if (progress.lastReviewDate == null) return true; // legacy data: treat as due
 
-    final interval = progress.reviewCount < intervals.length
-        ? intervals[progress.reviewCount]
-        : maintenanceInterval;
+    final interval = _intervalFor(progress);
     final daysSince = DateTime.now().difference(progress.lastReviewDate!).inDays;
     return daysSince >= interval;
   }
@@ -38,10 +37,14 @@ class ReviewService {
   }
 
   int _overdueBy(UserProgress progress) {
-    if (progress.lastReviewDate == null) return 999999;
-    final interval = progress.reviewCount < intervals.length
+    if (progress.lastReviewDate == null) return _maxOverdue;
+    final interval = _intervalFor(progress);
+    return DateTime.now().difference(progress.lastReviewDate!).inDays - interval;
+  }
+
+  int _intervalFor(UserProgress progress) {
+    return progress.reviewCount < intervals.length
         ? intervals[progress.reviewCount]
         : maintenanceInterval;
-    return DateTime.now().difference(progress.lastReviewDate!).inDays - interval;
   }
 }

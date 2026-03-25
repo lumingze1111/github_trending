@@ -131,6 +131,16 @@ void main() {
       );
       expect(service.isDueToday(p), false);
     });
+
+    test('reviewCount=0, isCompleted=true: due immediately (intervals[0]=0)', () {
+      final p = makeProgress(
+        problemId: 1,
+        isCompleted: true,
+        reviewCount: 0,
+        lastReviewDate: DateTime.now(),
+      );
+      expect(service.isDueToday(p), true);
+    });
   });
 
   group('getDueToday', () {
