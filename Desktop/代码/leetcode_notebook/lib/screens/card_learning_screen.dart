@@ -26,8 +26,6 @@ class _CardLearningScreenState extends State<CardLearningScreen>
   int _currentIndex = 0;
   List<LeetCodeProblem> _problems = [];
   bool _isReviewMode = false;
-  // ignore: unused_field
-  List<int> _reviewProblemIds = [];
   int _reviewedCount = 0;
   late AnimationController _bgController;
   late Animation<Alignment> _light1;
@@ -76,6 +74,8 @@ class _CardLearningScreenState extends State<CardLearningScreen>
   }
 
   void _enterReviewMode(List<int> dueIds) {
+    // Use the full problem list (not filtered) so due problems are always
+    // accessible regardless of any active filters.
     final allProblems = hot100Problems;
     final reviewProblems = dueIds
         .map((id) => allProblems.where((p) => p.id == id).firstOrNull)
@@ -86,7 +86,6 @@ class _CardLearningScreenState extends State<CardLearningScreen>
 
     setState(() {
       _isReviewMode = true;
-      _reviewProblemIds = dueIds;
       _reviewedCount = 0;
       _problems = reviewProblems;
       _currentIndex = 0;
@@ -97,7 +96,6 @@ class _CardLearningScreenState extends State<CardLearningScreen>
   void _exitReviewMode() {
     setState(() {
       _isReviewMode = false;
-      _reviewProblemIds = [];
       _reviewedCount = 0;
     });
     _refreshProblems();
@@ -158,6 +156,7 @@ class _CardLearningScreenState extends State<CardLearningScreen>
   }
 
   void _goToRandom() {
+    if (_isReviewMode) return;
     if (_problems.isEmpty) return;
     final random = Random().nextInt(_problems.length);
     _pageController.animateToPage(
@@ -168,6 +167,7 @@ class _CardLearningScreenState extends State<CardLearningScreen>
   }
 
   void _openFilter() async {
+    if (_isReviewMode) return;
     final filterService = context.read<FilterService>();
     final String? selectedId = await showModalBottomSheet<String>(
       context: context,
@@ -194,6 +194,7 @@ class _CardLearningScreenState extends State<CardLearningScreen>
   }
 
   void _toggleFavorite() {
+    if (_isReviewMode) return;
     if (_problems.isEmpty) return;
     final problem = _problems[_currentIndex];
     context.read<ProgressService>().toggleFavorite(problem.id);
