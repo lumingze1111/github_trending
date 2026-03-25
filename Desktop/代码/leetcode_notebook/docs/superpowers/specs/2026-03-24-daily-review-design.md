@@ -16,31 +16,29 @@ Add a built-in daily review system to the LeetCode Notebook app. When the user h
 
 ### Ebbinghaus Intervals
 
-After a problem is first completed, it is scheduled for review at these intervals (days since last review/completion):
+**`reviewCount` at first completion:** The existing `FlipCardWidget` calls both `markCompleted()` and `incrementReview()` when the user taps "MARK AS DONE". This means `reviewCount` starts at **1** (not 0) after first completion, and `lastReviewDate` is always set. Do **not** change this existing behavior.
 
-| Review session | Days since last event |
+The `intervals` array is indexed by `reviewCount` value at the time of the due-today check. Since `reviewCount` starts at 1, index 0 is intentionally unused — the array is sized for direct indexing:
+
+```dart
+// intervals[reviewCount] = days to wait before next review
+// index 0 is unused (reviewCount is always >= 1 for completed problems)
+static const List<int> intervals = [0, 2, 4, 7, 15];
+//                                   ^unused  ^ index 1..4 = reviews 1..4
+static const int maintenanceInterval = 30; // reviewCount >= 5
+```
+
+The effective schedule (days since last review/completion):
+
+| `reviewCount` after last event | Days until next review |
 |---|---|
-| 1st review | 1 day |
-| 2nd review | 2 days |
-| 3rd review | 4 days |
-| 4th review | 7 days |
-| 5th review | 15 days |
-| 6th+ review | 30 days (permanent maintenance) |
+| 1 (just completed) | 2 days |
+| 2 | 4 days |
+| 3 | 7 days |
+| 4 | 15 days |
+| ≥ 5 | 30 days (permanent maintenance) |
 
-**`reviewCount` semantics:** `reviewCount` is the number of review sessions already completed (0 = never reviewed yet). The interval lookup uses the current `reviewCount` to determine how long to wait before the *next* review.
-
-The interval is looked up using `reviewCount`:
-- `reviewCount == 0` → next review in 1 day
-- `reviewCount == 1` → next review in 2 days
-- `reviewCount == 2` → next review in 4 days
-- `reviewCount == 3` → next review in 7 days
-- `reviewCount == 4` → next review in 15 days
-- `reviewCount >= 5` → next review in 30 days
-
-**`reviewCount` at first completion:** The existing `FlipCardWidget` calls both `markCompleted()` and `incrementReview()` when the user taps "MARK AS DONE". This means at first completion, `reviewCount` is already 1 and `lastReviewDate` is set. The spec accounts for this:
-- The review schedule starts from `reviewCount == 1` → 2-day wait (the 1-day "next-day review" is effectively the day-0 completion itself)
-- `lastReviewDate` is used as the baseline (not `firstCompletedDate`) since it is always set after the first completion
-- Do **not** change the existing `markCompleted` + `incrementReview` call pair
+`lastReviewDate` is used as the baseline (not `firstCompletedDate`) since it is always non-null for completed problems.
 
 ### Due-Today Determination
 
@@ -133,7 +131,22 @@ class SettingsService extends ChangeNotifier {
 }
 ```
 
-`SettingsService` is registered as a `ChangeNotifierProvider` in `main.dart` alongside `ProgressService`, initialized before `runApp` via `SettingsService().init()`.
+`SettingsService` is registered as a `ChangeNotifierProvider` in `main.dart` using the **instance pattern**: create the instance, call `await instance.init()`, then pass it to `ChangeNotifierProvider.value`:
+
+```dart
+// main.dart (after Hive init, before runApp)
+final settingsService = SettingsService();
+await settingsService.init();
+
+runApp(MultiProvider(
+  providers: [
+    ChangeNotifierProvider(create: (_) => ProgressService()),
+    ChangeNotifierProvider.value(value: settingsService),
+    ...
+  ],
+  child: const MyApp(),
+));
+```
 
 `shared_preferences` must be added to `pubspec.yaml` as a new dependency.
 
@@ -155,7 +168,7 @@ Column(
 )
 ```
 
-The `Positioned.fill` animated background remains unchanged. `ReviewBanner` is a `Consumer<ProgressService>` widget that reads the due-today count.
+The `Positioned.fill` animated background remains unchanged. `ReviewBanner` is a `Consumer<ProgressService>` widget that reads the due-today count by calling `progressService.getTodayReviewProblems(limit: context.read<SettingsService>().dailyLimit).length`. It therefore depends on both `ProgressService` and `SettingsService` (both available via `Provider` at the widget tree level).
 
 **States:**
 
@@ -176,7 +189,9 @@ Triggered by tapping "开始复习" in the banner. Enters a filtered card flow:
 - On the card back face, the "打卡" button is replaced by "✓ 已复习" button
 - Tapping "✓ 已复习" calls `progressService.incrementReview(problemId)`, removes the card from the queue, and advances to next
 - After the last card is reviewed, a completion dialog appears ("🎉 今日复习完成！"), then returns to home screen
-- User can exit review mode early via AppBar back button; progress is preserved (reviewed cards don't reappear today)
+- User can exit review mode early via AppBar back button; progress is preserved — reviewed cards don't reappear because `incrementReview()` updates `lastReviewDate` to now, making `daysSince` = 0 which is less than any interval
+
+**Partial-review persistence across re-entry:** If the user reviews 3 of 5 due problems and exits, then re-enters review mode, the banner and review queue recompute live. The 3 reviewed problems will have `lastReviewDate = today`, so `daysSince = 0 < interval` → not due. Only the 2 unreviewed problems remain, so the banner shows "2 题待复习". This is the intended behavior.
 
 ### Settings Entry Point
 
@@ -196,7 +211,7 @@ In `StatisticsScreen`, add a new section card "每日复习设置" at the bottom
 | `ReviewService` | Interval math, due-today logic | `UserProgress` model |
 | `ProgressService` | Expose `getTodayReviewProblems()` | `ReviewService`, Hive |
 | `SettingsService` | Read/write daily limit (async init) | `SharedPreferences` |
-| `ReviewBanner` | Home screen banner widget | `ProgressService` |
+| `ReviewBanner` | Home screen banner widget | `ProgressService`, `SettingsService` |
 | `CardLearningScreen` | Orchestrate review mode, pass filtered list + limit | `ProgressService`, `SettingsService` |
 | `StatisticsScreen` | Settings slider | `SettingsService` |
 
@@ -204,7 +219,7 @@ In `StatisticsScreen`, add a new section card "每日复习设置" at the bottom
 
 ## Error Handling
 
-- If `firstCompletedDate` is null for a completed problem (data inconsistency from older records), treat the problem as due immediately
+- If `lastReviewDate` is null for a completed problem (legacy data inconsistency), treat the problem as due immediately
 - If `SharedPreferences` read fails, fall back silently to the default limit of 20
 - Empty review queue is a valid state, handled by the banner's "completed" display
 
